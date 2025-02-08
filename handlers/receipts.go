@@ -9,51 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"receipt_app/models"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
-type Item struct {
-	ShortDescription string `json:"shortDescription"`
-	Price            string `json:"price"`
-}
+var receipts = make(map[string]models.Receipt)
 
-type Receipt struct {
-	Retailer     string `json:"retailer"`
-	PurchaseDate string `json:"purchaseDate"`
-	PurchaseTime string `json:"purchaseTime"`
-	Total        string `json:"total"`
-	Items        []Item `json:"items"`
-	ID           string `json:"id"`
-	Points       int    `json:"points,omitempty"`
-}
-
-var receipts = make(map[string]Receipt)
-
-func CreateReceipt(w http.ResponseWriter, r *http.Request) {
-	var receipt Receipt
-	if err := json.NewDecoder(r.Body).Decode(&receipt); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	id := uuid.New().String()
-	receipt.ID = id
-	total, err := strconv.ParseFloat(receipt.Total, 64)
-	if err != nil {
-		http.Error(w, "Invalid total", http.StatusBadRequest)
-		return
-	}
-
-	receipt.Points = calculatePoints(receipt, total)
-	receipts[id] = receipt
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"id": id})
-}
-
-func calculatePoints(receipt Receipt, total float64) int {
+func CalculatePoints(receipt models.Receipt, total float64) int {
 	points := 0
 
 	reg := regexp.MustCompile("[a-zA-Z0-9]")
@@ -95,6 +59,29 @@ func calculatePoints(receipt Receipt, total float64) int {
 	}
 
 	return points
+}
+
+func CreateReceipt(w http.ResponseWriter, r *http.Request) {
+	var receipt models.Receipt
+	if err := json.NewDecoder(r.Body).Decode(&receipt); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id := uuid.New().String()
+	receipt.ID = id
+	total, err := strconv.ParseFloat(receipt.Total, 64)
+	if err != nil {
+		http.Error(w, "Invalid total", http.StatusBadRequest)
+		return
+	}
+
+	receipt.Points = CalculatePoints(receipt, total)
+	receipts[id] = receipt
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"id": id})
 }
 
 func GetPoints(w http.ResponseWriter, r *http.Request) {
